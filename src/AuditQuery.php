@@ -263,7 +263,7 @@ final class AuditQuery
             return null;
         }
 
-        $action = AuditAction::tryFrom((string) ($row['action'] ?? ''));
+        $action = AuditAction::tryFrom($this->extractString($row['action'] ?? null));
 
         if ($action === null) {
             return null;
@@ -272,25 +272,32 @@ final class AuditQuery
         $oldValues = $this->decodeJson($row['old_values'] ?? null);
         $newValues = $this->decodeJson($row['new_values'] ?? null);
 
-        $userId = isset($row['user_id']) && $row['user_id'] !== null
-            ? (string) $row['user_id']
-            : null;
+        $userId = isset($row['user_id']) ? $this->extractString($row['user_id']) : null;
 
         try {
-            $createdAt = new DateTimeImmutable((string) ($row['created_at'] ?? 'now'));
+            $createdAt = new DateTimeImmutable($this->extractString($row['created_at'] ?? null, 'now'));
         } catch (\Throwable) {
             $createdAt = new DateTimeImmutable();
         }
 
         return new AuditRecord(
-            entityType: (string) ($row['entity_type'] ?? ''),
-            entityId: (string) ($row['entity_id'] ?? ''),
+            entityType: $this->extractString($row['entity_type'] ?? null),
+            entityId: $this->extractString($row['entity_id'] ?? null),
             action: $action,
             oldValues: $oldValues,
             newValues: $newValues,
             userId: $userId,
             createdAt: $createdAt,
         );
+    }
+
+    /**
+     * Safely extract a string from a mixed value.
+     * Scalars are cast to string; non-scalars return the default.
+     */
+    private function extractString(mixed $value, string $default = ''): string
+    {
+        return is_scalar($value) ? (string) $value : $default;
     }
 
     /**

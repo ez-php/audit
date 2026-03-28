@@ -68,7 +68,7 @@ final class AuditListenerTest extends TestCase
         $spy = new SpyAuditLogger();
         $listener = new AuditListener($spy);
 
-        $listener->handle(new class implements EventInterface {
+        $listener->handle(new class () implements EventInterface {
         });
 
         self::assertCount(0, $spy->records);

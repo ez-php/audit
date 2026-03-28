@@ -26,6 +26,17 @@ final class AuditLoggerTest extends TestCase
         $this->pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     }
 
+    private function dbQuery(string $sql): \PDOStatement
+    {
+        $stmt = $this->pdo->query($sql);
+        self::assertInstanceOf(\PDOStatement::class, $stmt);
+        return $stmt;
+    }
+
+    /**
+     * @param array<string, mixed> $oldValues
+     * @param array<string, mixed> $newValues
+     */
     private function makeRecord(
         string $entityType = 'App\\User',
         string $entityId = '1',
@@ -52,7 +63,7 @@ final class AuditLoggerTest extends TestCase
 
         $logger->log($this->makeRecord());
 
-        $rows = $this->pdo->query('SELECT * FROM audit_logs')->fetchAll(PDO::FETCH_ASSOC);
+        $rows = $this->dbQuery('SELECT * FROM audit_logs')->fetchAll(PDO::FETCH_ASSOC);
         self::assertCount(1, $rows);
         self::assertSame('App\\User', $rows[0]['entity_type']);
         self::assertSame('1', $rows[0]['entity_id']);
@@ -70,7 +81,8 @@ final class AuditLoggerTest extends TestCase
             newValues: ['name' => 'Bobby'],
         ));
 
-        $row = $this->pdo->query('SELECT old_values, new_values FROM audit_logs')->fetch(PDO::FETCH_ASSOC);
+        $row = $this->dbQuery('SELECT old_values, new_values FROM audit_logs')->fetch(PDO::FETCH_ASSOC);
+        self::assertIsArray($row);
         self::assertSame('{"name":"Bob"}', $row['old_values']);
         self::assertSame('{"name":"Bobby"}', $row['new_values']);
     }
@@ -80,7 +92,8 @@ final class AuditLoggerTest extends TestCase
         $logger = new AuditLogger($this->pdo);
         $logger->log($this->makeRecord(action: AuditAction::CREATE, oldValues: [], newValues: []));
 
-        $row = $this->pdo->query('SELECT old_values, new_values FROM audit_logs')->fetch(PDO::FETCH_ASSOC);
+        $row = $this->dbQuery('SELECT old_values, new_values FROM audit_logs')->fetch(PDO::FETCH_ASSOC);
+        self::assertIsArray($row);
         self::assertNull($row['old_values']);
         self::assertNull($row['new_values']);
     }
@@ -90,7 +103,8 @@ final class AuditLoggerTest extends TestCase
         $logger = new AuditLogger($this->pdo);
         $logger->log($this->makeRecord(userId: null));
 
-        $row = $this->pdo->query('SELECT user_id FROM audit_logs')->fetch(PDO::FETCH_ASSOC);
+        $row = $this->dbQuery('SELECT user_id FROM audit_logs')->fetch(PDO::FETCH_ASSOC);
+        self::assertIsArray($row);
         self::assertNull($row['user_id']);
     }
 
@@ -101,7 +115,7 @@ final class AuditLoggerTest extends TestCase
         $logger->log($this->makeRecord(action: AuditAction::UPDATE, oldValues: ['name' => 'A'], newValues: ['name' => 'B']));
         $logger->log($this->makeRecord(action: AuditAction::DELETE, oldValues: ['name' => 'B'], newValues: []));
 
-        $count = (int) $this->pdo->query('SELECT COUNT(*) FROM audit_logs')->fetchColumn();
+        $count = (int) $this->dbQuery('SELECT COUNT(*) FROM audit_logs')->fetchColumn();
         self::assertSame(3, $count);
     }
 
@@ -111,7 +125,7 @@ final class AuditLoggerTest extends TestCase
         $logger->ensureTable();
         $logger->ensureTable();
 
-        $count = (int) $this->pdo->query('SELECT COUNT(*) FROM audit_logs')->fetchColumn();
+        $count = (int) $this->dbQuery('SELECT COUNT(*) FROM audit_logs')->fetchColumn();
         self::assertSame(0, $count);
     }
 
@@ -122,7 +136,7 @@ final class AuditLoggerTest extends TestCase
         $logger->log($this->makeRecord(action: AuditAction::UPDATE, oldValues: ['x' => 1], newValues: ['x' => 2]));
         $logger->log($this->makeRecord(action: AuditAction::DELETE, oldValues: ['x' => 2], newValues: []));
 
-        $rows = $this->pdo->query('SELECT action FROM audit_logs ORDER BY id')->fetchAll(PDO::FETCH_COLUMN);
+        $rows = $this->dbQuery('SELECT action FROM audit_logs ORDER BY id')->fetchAll(PDO::FETCH_COLUMN);
         self::assertSame(['create', 'update', 'delete'], $rows);
     }
 }

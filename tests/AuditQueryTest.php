@@ -39,6 +39,10 @@ final class AuditQueryTest extends TestCase
         AuditQuery::resetPdo();
     }
 
+    /**
+     * @param array<string, mixed> $oldValues
+     * @param array<string, mixed> $newValues
+     */
     private function insert(
         string $entityType,
         string $entityId,
