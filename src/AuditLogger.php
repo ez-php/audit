@@ -99,6 +99,12 @@ final class AuditLogger implements AuditLoggerInterface
                         created_at  TEXT    NOT NULL
                     )'
                 );
+                $this->pdo->exec(
+                    'CREATE INDEX IF NOT EXISTS idx_audit_entity ON audit_logs (entity_type, entity_id)'
+                );
+                $this->pdo->exec(
+                    'CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs (created_at)'
+                );
             } else {
                 $this->pdo->exec(
                     'CREATE TABLE IF NOT EXISTS audit_logs (
