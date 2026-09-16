@@ -38,6 +38,20 @@ CREATE TABLE audit_logs (
 );
 ```
 
+## Pruning old records
+
+`AuditServiceProvider::boot()` auto-registers `audit:prune` when running inside the
+ez-php `Application` (guarded by `CommandRegistryInterface`, same as the other
+optional-module commands):
+
+```bash
+php ez audit:prune --before=2024-01-01   # delete records created before this date
+php ez audit:prune --days=90             # delete records older than 90 days from now
+```
+
+Nothing prunes automatically — run it from a scheduled job (e.g. `ez-php/scheduler`)
+if periodic purging is desired.
+
 ## Usage
 
 ### Dispatching audit events from repositories

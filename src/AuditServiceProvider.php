@@ -4,9 +4,11 @@ declare(strict_types=1);
 
 namespace EzPhp\Audit;
 
+use EzPhp\Audit\Console\AuditPruneCommand;
 use EzPhp\Audit\Event\EntityCreatedEvent;
 use EzPhp\Audit\Event\EntityDeletedEvent;
 use EzPhp\Audit\Event\EntityUpdatedEvent;
+use EzPhp\Contracts\CommandRegistryInterface;
 use EzPhp\Contracts\ContainerInterface;
 use EzPhp\Contracts\DatabaseInterface;
 use EzPhp\Contracts\ServiceProvider;
@@ -40,10 +42,17 @@ final class AuditServiceProvider extends ServiceProvider
 
             return new AuditLogger($db->getPdo());
         });
+
+        $this->app->bind(AuditPruneCommand::class, function (ContainerInterface $app): AuditPruneCommand {
+            $db = $app->make(DatabaseInterface::class);
+
+            return new AuditPruneCommand($db->getPdo());
+        });
     }
 
     /**
-     * Wire the AuditListener and initialise AuditQuery.
+     * Wire the AuditListener, initialise AuditQuery, and (when running inside
+     * the ez-php Application) auto-register audit:prune.
      *
      * Uses try/catch so the module degrades gracefully when DatabaseInterface
      * or EventDispatcher are not bound in the container.
@@ -63,6 +72,10 @@ final class AuditServiceProvider extends ServiceProvider
             $dispatcher->listen(EntityDeletedEvent::class, $listener);
         } catch (\Throwable) {
             // DatabaseInterface or EventDispatcher not bound — audit disabled
+        }
+
+        if ($this->app instanceof CommandRegistryInterface) {
+            $this->app->registerCommand(AuditPruneCommand::class);
         }
     }
 }

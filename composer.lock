@@ -4,8 +4,65 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "1e5aecd18f4c74524f3fe32b43944170",
+    "content-hash": "dd2f3731acc1b12b33c8199173ff9ba7",
     "packages": [
+        {
+            "name": "ez-php/console",
+            "version": "2.4.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/ez-php/console.git",
+                "reference": "99f063e6dca91723db124335b24b90f2ae5c1428"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/ez-php/console/zipball/99f063e6dca91723db124335b24b90f2ae5c1428",
+                "reference": "99f063e6dca91723db124335b24b90f2ae5c1428",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^8.5"
+            },
+            "require-dev": {
+                "ez-php/docker": "^2.0",
+                "ez-php/testing-application": "^2.0",
+                "friendsofphp/php-cs-fixer": "^3.94",
+                "phpstan/phpstan": "^2.1",
+                "phpstan/phpstan-deprecation-rules": "^2.0",
+                "phpstan/phpstan-strict-rules": "^2.0",
+                "phpunit/phpunit": "^13.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "EzPhp\\Console\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "Andreas Uretschnig",
+                    "email": "andreas.uretschnig@gmail.com"
+                }
+            ],
+            "description": "Lightweight console infrastructure for PHP — command dispatcher, argument parser, and colored output helpers",
+            "homepage": "https://github.com/ez-php/console",
+            "keywords": [
+                "cli",
+                "command",
+                "console",
+                "php",
+                "terminal"
+            ],
+            "support": {
+                "issues": "https://github.com/ez-php/console/issues",
+                "source": "https://github.com/ez-php/console"
+            },
+            "time": "2026-09-14T23:33:31+00:00"
+        },
         {
             "name": "ez-php/contracts",
             "version": "2.4.0",

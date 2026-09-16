@@ -257,7 +257,9 @@ src/
 ├── AuditRecord.php              — immutable value object: entityType, entityId, action, old/newValues, userId, createdAt
 ├── AuditListener.php            — ListenerInterface: routes entity lifecycle events to AuditLoggerInterface
 ├── AuditQuery.php               — fluent, immutable query builder; static for() entry point backed by static PDO
-├── AuditServiceProvider.php     — binds AuditLoggerInterface; registers AuditListener; initialises AuditQuery
+├── AuditServiceProvider.php     — binds AuditLoggerInterface + AuditPruneCommand; registers AuditListener; initialises AuditQuery; auto-registers audit:prune
+├── Console/
+│   └── AuditPruneCommand.php    — audit:prune CLI command; deletes audit_logs rows older than --before=DATE or --days=N
 └── Event/
     ├── EntityCreatedEvent.php   — EventInterface: entityType, entityId, newValues, userId
     ├── EntityUpdatedEvent.php   — EventInterface: entityType, entityId, oldValues, newValues, userId
@@ -269,6 +271,9 @@ tests/
 ├── AuditLoggerTest.php          — SQLite :memory:; covers table creation, all three actions, JSON encoding
 ├── AuditQueryTest.php           — SQLite :memory:; covers all filters, ordering, count, first, cloning
 ├── AuditListenerTest.php        — SpyAuditLogger; covers all three event types and unknown event pass-through
+├── AuditServiceProviderTest.php — FakeContainer smoke tests; covers logger/command binding and audit:prune auto-registration
+├── Console/
+│   └── AuditPruneCommandTest.php — SQLite :memory:; covers --before, --days, and missing-cutoff error path
 └── Event/
     ├── EntityCreatedEventTest.php
     ├── EntityUpdatedEventTest.php
@@ -339,12 +344,20 @@ Fluent, immutable query builder scoped to a single entity (`entityType + entityI
 
 ### `AuditServiceProvider` (`src/AuditServiceProvider.php`)
 
-`register()` binds `AuditLoggerInterface` → `AuditLogger` (requires `DatabaseInterface` in the container).
+`register()` binds `AuditLoggerInterface` → `AuditLogger` and `AuditPruneCommand` (both require `DatabaseInterface` in the container).
 
 `boot()` does three things inside a single `try/catch \Throwable`:
 1. Calls `AuditQuery::setPdo($db->getPdo())` to initialise the static query factory.
 2. Creates and registers an `AuditListener` for `EntityCreatedEvent`, `EntityUpdatedEvent`, and `EntityDeletedEvent` via `EventDispatcher::listen()`.
 3. If `DatabaseInterface` or `EventDispatcher` is missing, the entire `boot()` step is skipped — audit is disabled without crashing the application.
+
+Outside that `try/catch`, `boot()` also auto-registers `audit:prune` when `$this->app instanceof CommandRegistryInterface` — same guard pattern as `ez-php/queue`'s `QueueServiceProvider`.
+
+---
+
+### `AuditPruneCommand` (`src/Console/AuditPruneCommand.php`)
+
+Console command `audit:prune`. Deletes rows from `audit_logs` where `created_at` is older than a cutoff, resolved from `--before=YYYY-MM-DD` or `--days=N` (checked in that order). Returns exit code `1` with no deletion when neither option is given or `--before` fails to parse. Not run automatically — intended to be invoked from a scheduled job.
 
 ---
 
@@ -368,6 +381,7 @@ No external infrastructure required. All tests run in-process:
 - `AuditLoggerTest` — SQLite `:memory:` via PDO; covers table creation, JSON encoding, NULL handling, all actions
 - `AuditQueryTest` — SQLite `:memory:`; covers all filter combinations, ordering, count, first, clone isolation, uninitialised throw
 - `AuditListenerTest` — `SpyAuditLogger` (file-scope named class); covers all three event types and unknown event pass-through
+- `AuditPruneCommandTest` — SQLite `:memory:` via PDO; covers `--before`, `--days`, and the missing-cutoff error path; output-producing calls are wrapped in `ob_start()`/`ob_end_clean()` to avoid PHPUnit's risky-output warning
 - `EntityCreatedEventTest`, `EntityUpdatedEventTest`, `EntityDeletedEventTest` — pure unit; cover `EventInterface` contract, property storage, defaults
 
 `SpyAuditLogger` is a file-scope named class (not anonymous) to avoid PHPStan's `property.onlyWritten` check on the public `$records` array.
@@ -385,6 +399,7 @@ No external infrastructure required. All tests run in-process:
 | Soft-delete tracking | `ez-php/orm` soft-delete feature |
 | Field-level change diffing | Application layer — compute diff before dispatching `EntityUpdatedEvent` |
 | Exporting audit logs to CSV / PDF | Application layer |
-| Purging / archiving old audit logs | Application layer (scheduled job via `ez-php/scheduler`) |
+| Archiving old audit logs before deletion | Application layer |
+| Automatic / scheduled invocation of `audit:prune` | Application layer (cron entry or `ez-php/scheduler` job calling the command) — the module only provides the deletion command itself |
 | Per-field encryption of sensitive audit values | Application layer |
 | Real-time audit streaming | `ez-php/broadcast` |
