@@ -1,6 +1,6 @@
 {
     "name": "ez-php/audit",
-    "version": "2.4.9",
+    "version": "2.4.10",
     "description": "Audit log module for ez-php — event-driven recording of entity lifecycle changes (CREATE, UPDATE, DELETE) into an audit_logs table with a fluent query API.",
     "type": "library",
     "license": "MIT",
