@@ -6,6 +6,7 @@ namespace Tests;
 
 use DateTimeImmutable;
 use EzPhp\Audit\AuditAction;
+use EzPhp\Audit\AuditException;
 use EzPhp\Audit\AuditLogger;
 use EzPhp\Audit\AuditRecord;
 use PDO;
@@ -127,6 +128,35 @@ final class AuditLoggerTest extends TestCase
 
         $count = (int) $this->dbQuery('SELECT COUNT(*) FROM audit_logs')->fetchColumn();
         self::assertSame(0, $count);
+    }
+
+    public function testEnsureTableSurfacesDdlFailures(): void
+    {
+        // A view of the same name: CREATE TABLE IF NOT EXISTS is a no-op, but indexing it fails.
+        $this->pdo->exec('CREATE VIEW audit_logs AS SELECT 1 AS id');
+        $logger = new AuditLogger($this->pdo);
+
+        $this->expectException(AuditException::class);
+        $this->expectExceptionMessage('audit_logs');
+        $logger->ensureTable();
+    }
+
+    public function testEnsureTableRetriesAfterAFailure(): void
+    {
+        $this->pdo->exec('CREATE VIEW audit_logs AS SELECT 1 AS id');
+        $logger = new AuditLogger($this->pdo);
+
+        try {
+            $logger->ensureTable();
+            self::fail('Expected the first ensureTable() to fail.');
+        } catch (AuditException) {
+            // expected
+        }
+
+        $this->pdo->exec('DROP VIEW audit_logs');
+        $logger->ensureTable();
+
+        self::assertSame('table', $this->dbQuery("SELECT type FROM sqlite_master WHERE name = 'audit_logs'")->fetchColumn());
     }
 
     public function testAllThreeActionValuesAreStored(): void

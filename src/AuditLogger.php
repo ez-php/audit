@@ -73,15 +73,20 @@ final class AuditLogger implements AuditLoggerInterface
 
     /**
      * Create the audit_logs table if it does not yet exist.
-     * Runs at most once per AuditLogger instance. Adapts DDL to the PDO driver.
+     * Succeeds at most once per AuditLogger instance (a failed attempt is retried on
+     * the next call). Adapts DDL to the PDO driver.
+     *
+     * The statements are all `IF NOT EXISTS`, so an existing table is not an error;
+     * any failure that still occurs (missing privilege, a clashing view, an old MySQL
+     * without JSON) is real and surfaces here instead of later as a confusing INSERT error.
+     *
+     * @throws AuditException When the DDL fails.
      */
     public function ensureTable(): void
     {
         if ($this->tableChecked) {
             return;
         }
-
-        $this->tableChecked = true;
 
         try {
             $driver = $this->pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
@@ -121,8 +126,10 @@ final class AuditLogger implements AuditLoggerInterface
                     )'
                 );
             }
-        } catch (\Throwable) {
-            // Table may already exist — ignore DDL error
+        } catch (\Throwable $e) {
+            throw new AuditException("Failed to create the audit_logs table: {$e->getMessage()}", 0, $e);
         }
+
+        $this->tableChecked = true;
     }
 }
