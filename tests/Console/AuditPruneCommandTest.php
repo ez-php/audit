@@ -59,14 +59,14 @@ final class AuditPruneCommandTest extends TestCase
 
     public function test_get_name_returns_audit_prune(): void
     {
-        $command = new AuditPruneCommand($this->pdo);
+        $command = new AuditPruneCommand($this->pdo, errorStream: fopen('php://memory', 'w') ?: null);
 
         self::assertSame('audit:prune', $command->getName());
     }
 
     public function test_deletes_records_older_than_before_option(): void
     {
-        $command = new AuditPruneCommand($this->pdo);
+        $command = new AuditPruneCommand($this->pdo, errorStream: fopen('php://memory', 'w') ?: null);
 
         ob_start();
         $exitCode = $command->handle(['--before=2021-01-01']);
@@ -87,7 +87,7 @@ final class AuditPruneCommandTest extends TestCase
         $stmt->execute(['App\\User', '1', 'create', null, (new \DateTimeImmutable('-100 days'))->format('Y-m-d H:i:s')]);
         $stmt->execute(['App\\User', '2', 'create', null, (new \DateTimeImmutable('-1 day'))->format('Y-m-d H:i:s')]);
 
-        $command = new AuditPruneCommand($this->pdo);
+        $command = new AuditPruneCommand($this->pdo, errorStream: fopen('php://memory', 'w') ?: null);
 
         ob_start();
         $exitCode = $command->handle(['--days=30']);
@@ -101,7 +101,7 @@ final class AuditPruneCommandTest extends TestCase
 
     public function test_returns_error_when_no_cutoff_option_given(): void
     {
-        $command = new AuditPruneCommand($this->pdo);
+        $command = new AuditPruneCommand($this->pdo, errorStream: fopen('php://memory', 'w') ?: null);
 
         ob_start();
         $exitCode = $command->handle([]);

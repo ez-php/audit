@@ -30,9 +30,11 @@ final readonly class AuditPruneCommand implements CommandInterface
      * AuditPruneCommand Constructor
      *
      * @param PDO $pdo
+     * @param resource|null $errorStream Where error messages go; null = STDERR (injectable for tests).
      */
     public function __construct(
         private PDO $pdo,
+        private mixed $errorStream = null,
     ) {
     }
 
@@ -78,7 +80,7 @@ final readonly class AuditPruneCommand implements CommandInterface
         $cutoff = $this->resolveCutoff($input);
 
         if ($cutoff === null) {
-            Output::error('Missing cutoff: pass --before=YYYY-MM-DD or --days=N.');
+            Output::error('Missing cutoff: pass --before=YYYY-MM-DD or --days=N.', $this->errorStream);
 
             return 1;
         }
