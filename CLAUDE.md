@@ -293,10 +293,13 @@ tests/
 ├── AuditServiceProviderTest.php — FakeContainer smoke tests; covers logger/command binding and audit:prune auto-registration
 ├── Console/
 │   └── AuditPruneCommandTest.php — SQLite :memory:; covers --before, --days, and missing-cutoff error path
-└── Event/
-    ├── EntityCreatedEventTest.php
-    ├── EntityUpdatedEventTest.php
-    └── EntityDeletedEventTest.php
+├── Event/
+│   ├── EntityCreatedEventTest.php
+│   ├── EntityUpdatedEventTest.php
+│   └── EntityDeletedEventTest.php
+└── Support/
+    ├── FakeConfig.php               — minimal ConfigInterface stub for service provider tests
+    └── FakeContainer.php            — minimal ContainerInterface stub for service provider tests
 ```
 
 ## Key classes and responsibilities
