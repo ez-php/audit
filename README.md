@@ -18,6 +18,9 @@ return [
 ```
 
 `AuditServiceProvider` requires `DatabaseInterface` and `ez-php/events` (`EventServiceProvider`) to be registered before it.
+Without a `DatabaseInterface` binding auditing is off; without an `EventDispatcher` binding the listener is not
+registered (`AuditQuery` still works). Any other failure during `boot()` — e.g. a database that cannot be reached —
+is not swallowed: an audit log that silently stops recording is worse than a loud boot error.
 
 ## Database Schema
 

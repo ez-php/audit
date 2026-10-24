@@ -8,7 +8,6 @@ use EzPhp\Audit\Console\AuditPruneCommand;
 use EzPhp\Audit\Event\EntityCreatedEvent;
 use EzPhp\Audit\Event\EntityDeletedEvent;
 use EzPhp\Audit\Event\EntityUpdatedEvent;
-use EzPhp\Contracts\CommandRegistryInterface;
 use EzPhp\Contracts\ContainerInterface;
 use EzPhp\Contracts\DatabaseInterface;
 use EzPhp\Contracts\ServiceProvider;
@@ -25,8 +24,10 @@ use EzPhp\Events\EventDispatcher;
  * - DatabaseInterface — for AuditLogger and AuditQuery
  * - EventDispatcher   — for listener registration (from ez-php/events)
  *
- * Both are resolved in boot() inside a single try/catch so that missing
- * bindings degrade gracefully (audit is disabled, no exception thrown).
+ * boot() checks both with has(): without DatabaseInterface audit is disabled,
+ * without EventDispatcher only the listener is skipped (AuditQuery still works).
+ * Nothing else is caught — an unreachable database or a broken binding surfaces
+ * instead of silently switching auditing off.
  *
  * @package EzPhp\Audit
  */
@@ -51,31 +52,30 @@ final class AuditServiceProvider extends ServiceProvider
     }
 
     /**
-     * Wire the AuditListener, initialise AuditQuery, and (when running inside
+     * Initialise AuditQuery, wire the AuditListener, and (when running inside
      * the ez-php Application) auto-register audit:prune.
      *
-     * Uses try/catch so the module degrades gracefully when DatabaseInterface
-     * or EventDispatcher are not bound in the container.
+     * Skips what a missing binding makes impossible (see the class doc); every
+     * other error propagates.
      */
     public function boot(): void
     {
-        try {
-            $db = $this->app->make(DatabaseInterface::class);
-            AuditQuery::setPdo($db->getPdo());
+        $this->registerCommand(AuditPruneCommand::class);
 
-            $logger = $this->app->make(AuditLoggerInterface::class);
-            $listener = new AuditListener($logger);
-
-            $dispatcher = $this->app->make(EventDispatcher::class);
-            $dispatcher->listen(EntityCreatedEvent::class, $listener);
-            $dispatcher->listen(EntityUpdatedEvent::class, $listener);
-            $dispatcher->listen(EntityDeletedEvent::class, $listener);
-        } catch (\Throwable) {
-            // DatabaseInterface or EventDispatcher not bound — audit disabled
+        if (!$this->app->has(DatabaseInterface::class)) {
+            return;
         }
 
-        if ($this->app instanceof CommandRegistryInterface) {
-            $this->app->registerCommand(AuditPruneCommand::class);
+        AuditQuery::setPdo($this->app->make(DatabaseInterface::class)->getPdo());
+
+        if (!$this->app->has(EventDispatcher::class)) {
+            return;
         }
+
+        $listener = new AuditListener($this->app->make(AuditLoggerInterface::class));
+        $dispatcher = $this->app->make(EventDispatcher::class);
+        $dispatcher->listen(EntityCreatedEvent::class, $listener);
+        $dispatcher->listen(EntityUpdatedEvent::class, $listener);
+        $dispatcher->listen(EntityDeletedEvent::class, $listener);
     }
 }

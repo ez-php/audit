@@ -232,7 +232,7 @@ After scaffolding:
 |---|---|---|---|
 | root (`ez-php-project`) | 3306 | 6379 (`REDIS_PORT`) | 7700 |
 | `ez-php/framework` | 3307 | — | — |
-| `ez-php/` (application template) | 3308 | 6383 (`REDIS_PORT`) | — |
+| `ez-php/` (application template) | 3308 | 6383 (`REDIS_PORT`) | 7702 (opt-in service) |
 | `ez-php/orm` | 3309 | — | — |
 | `ez-php/cache` | — | 6380 (`REDIS_HOST_PORT`) | — |
 | `ez-php/queue` | 3310 | 6381 (`REDIS_HOST_PORT`) | — |
@@ -245,7 +245,7 @@ After scaffolding:
 | `ez-php/session` | — | 6387 (`REDIS_HOST_PORT`) | — |
 | `ez-php/metrics` | — | 6388 (`REDIS_HOST_PORT`) | — |
 | `ez-php/event-store-snapshots` | 3312 | — | — |
-| **next free** | **3313** | **6389** | **7702** |
+| **next free** | **3313** | **6389** | **7703** |
 
 Only set a port for services the module actually uses. Modules without external services need no port config.
 
@@ -290,7 +290,7 @@ tests/
 ├── AuditLoggerTest.php          — SQLite :memory:; covers table creation, all three actions, JSON encoding
 ├── AuditQueryTest.php           — SQLite :memory:; covers all filters, ordering, count, first, cloning
 ├── AuditListenerTest.php        — SpyAuditLogger; covers all three event types and unknown event pass-through
-├── AuditServiceProviderTest.php — FakeContainer smoke tests; covers logger/command binding and audit:prune auto-registration
+├── AuditServiceProviderTest.php — FakeContainer tests: logger/command binding, audit:prune auto-registration, events → audit_logs end to end, AuditQuery without a dispatcher, DB failure surfaces
 ├── Console/
 │   └── AuditPruneCommandTest.php — SQLite :memory:; covers --before, --days, and missing-cutoff error path
 ├── Event/
@@ -298,6 +298,7 @@ tests/
 │   ├── EntityUpdatedEventTest.php
 │   └── EntityDeletedEventTest.php
 └── Support/
+    ├── AuditSqliteDatabase.php      — minimal DatabaseInterface over in-memory SQLite for the provider tests
     ├── FakeConfig.php               — minimal ConfigInterface stub for service provider tests
     └── FakeContainer.php            — minimal ContainerInterface stub for service provider tests
 ```
@@ -368,12 +369,12 @@ Fluent, immutable query builder scoped to a single entity (`entityType + entityI
 
 `register()` binds `AuditLoggerInterface` → `AuditLogger` and `AuditPruneCommand` (both require `DatabaseInterface` in the container).
 
-`boot()` does three things inside a single `try/catch \Throwable`:
-1. Calls `AuditQuery::setPdo($db->getPdo())` to initialise the static query factory.
-2. Creates and registers an `AuditListener` for `EntityCreatedEvent`, `EntityUpdatedEvent`, and `EntityDeletedEvent` via `EventDispatcher::listen()`.
-3. If `DatabaseInterface` or `EventDispatcher` is missing, the entire `boot()` step is skipped — audit is disabled without crashing the application.
+`boot()` checks its bindings with `has()` instead of catching errors:
+1. Auto-registers `audit:prune` through the `ServiceProvider::registerCommand()` helper (a no-op outside a `CommandRegistryInterface` container).
+2. Without a `DatabaseInterface` binding it stops there — audit is disabled. Otherwise it calls `AuditQuery::setPdo($db->getPdo())`.
+3. Without an `EventDispatcher` binding (i.e. no `EventServiceProvider`) it skips the listener; otherwise it registers one `AuditListener` for `EntityCreatedEvent`, `EntityUpdatedEvent` and `EntityDeletedEvent`.
 
-Outside that `try/catch`, `boot()` also auto-registers `audit:prune` when `$this->app instanceof CommandRegistryInterface` — same guard pattern as `ez-php/queue`'s `QueueServiceProvider`.
+Nothing else is caught. The `try/catch \Throwable` this replaced also swallowed a failed DB connection or a broken logger binding, which turned auditing off without a trace; an unreachable database now fails the boot, as it already does for `ez-php/orm`'s `EntityServiceProvider`.
 
 ---
 
