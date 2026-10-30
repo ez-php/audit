@@ -48,7 +48,6 @@ use Tests\Support\FakeContainer;
 #[UsesClass(EntityCreatedEvent::class)]
 #[UsesClass(EntityUpdatedEvent::class)]
 #[UsesClass(EntityDeletedEvent::class)]
-#[UsesClass(EventDispatcher::class)]
 final class AuditServiceProviderTest extends TestCase
 {
     protected function tearDown(): void
